@@ -1,0 +1,34 @@
+#cloud-config
+# Bootstraps the experiment VM: base tools, Node.js 22, Ollama, then hands off
+# to setup scripts for Hermes (via Ollama) and OpenClaw.
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - git
+  - build-essential
+  - ca-certificates
+  - jq
+
+write_files:
+  - path: /opt/agentlab/setup-hermes.sh
+    permissions: '0755'
+    encoding: b64
+    content: __SETUP_HERMES_B64__
+  - path: /opt/agentlab/setup-openclaw.sh
+    permissions: '0755'
+    encoding: b64
+    content: __SETUP_OPENCLAW_B64__
+
+runcmd:
+  # Node.js 22 (required by OpenClaw)
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  # Ollama (serves the Hermes model locally)
+  - curl -fsSL https://ollama.com/install.sh | sh
+  - bash /opt/agentlab/setup-hermes.sh 2>&1 | tee /var/log/agentlab-hermes.log
+  - bash /opt/agentlab/setup-openclaw.sh 2>&1 | tee /var/log/agentlab-openclaw.log
+  - echo "agentlab cloud-init complete" > /var/log/agentlab-ready
+
+final_message: "agentlab VM ready after $UPTIME seconds"

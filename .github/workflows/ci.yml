@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: shellcheck scripts/*.sh deploy.sh
+
+      - name: Render cloud-init (for bicep loadFileAsBase64)
+        run: |
+          H=$(base64 -w0 scripts/setup-hermes.sh)
+          O=$(base64 -w0 scripts/setup-openclaw.sh)
+          sed -e "s|__SETUP_HERMES_B64__|${H}|" \
+              -e "s|__SETUP_OPENCLAW_B64__|${O}|" \
+              infra/cloud-init.template.yaml > infra/cloud-init.yaml
+
+      - name: bicep build
+        run: az bicep build --file infra/main.bicep
